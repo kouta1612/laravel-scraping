@@ -11,4 +11,5 @@
 |
 */
 
-Route::get('/', 'ScrapController@scraping');
+Route::get('/', 'BlogController@index');
+Route::get('/scrape', 'ScrapController@scraping');

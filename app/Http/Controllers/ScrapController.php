@@ -3,17 +3,30 @@
 namespace App\Http\Controllers;
 
 use Goutte;
-use Illuminate\Http\Request;
 use App\Blog;
+use Carbon\Carbon;
 
 class ScrapController extends Controller
 {
     public function scraping()
     {
-        $crawler = Goutte::request('GET', 'https://manablog.org/');
-        $datas = $this->getParseData($crawler);
-        $this->save($datas);
-        return 1;
+        $urls = $this->getUrls();
+        foreach ($urls as $url) {
+            $crawler = Goutte::request('GET', $url);
+            $datas = $this->getParseData($crawler);
+
+            $this->save($datas);
+        }
+        return redirect('/');
+    }
+
+    private function getUrls()
+    {
+        $urls = ['https://manablog.org/'];
+        for ($i = 2; $i <= 110; $i++) {
+            $urls[] = "https://manablog.org/page/{$i}/";
+        }
+        return $urls;
     }
 
     private function save($datas)
@@ -23,7 +36,9 @@ class ScrapController extends Controller
                 'title' => $data['title'],
                 'content' => $data['content'],
                 'category' => $data['category'],
-                'picture' => $data['picture']
+                'picture' => $data['picture'],
+                'created_at' => $data['time'],
+                'updated_at' => $data['time'],
             ]);
         }
     }
@@ -36,10 +51,28 @@ class ScrapController extends Controller
             $content = $node->filter('p.description')->text();
             $category = implode(',', explode(' ', $node->filter('p.cat')->text()));
             $picture = $this->getPicture($node);
+            $time = new Carbon($this->getTime($node));
 
-            $data[] = ['title' => $title, 'content' => $content, 'category' => $category, 'picture' => $picture];
+            $data[] = [
+                'title' => $title,
+                'content' => $content,
+                'category' => $category,
+                'picture' => $picture,
+                'time' => $time
+            ];
         });
         return $data;
+    }
+
+    private function getTime($node)
+    {
+        $matches = [];
+        preg_match(
+            '/(\d+\/\d+\/\d+)/',
+            $node->filter('time[itemprop=dateModified],time[itemprop=datePublished]')->text(),
+            $matches
+        );
+        return str_replace('/', '-', $matches[1]);
     }
 
     private function getPicture($node)
@@ -50,6 +83,9 @@ class ScrapController extends Controller
             $node->filter('.thumbnail-img')->attr('style'),
             $matches
         );
-        return $matches[1];
+        if (!empty($matches)) {
+            return $matches[1];
+        }
+        return "";
     }
 }
