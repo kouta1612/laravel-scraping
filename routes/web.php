@@ -12,5 +12,18 @@
 */
 
 Route::get('/', function () {
-    return view('welcome');
+    $crawler = Goutte::request('GET', 'https://manablog.org/');
+    $data = [];
+    $crawler->filter('.thumbnail-img')->each(function ($node) use (&$data) {
+        $matches = [];
+        preg_match(
+            '/background-image:url\((https:\/\/manablog.org\/wp-content\/uploads\/\d+\/\d+\/[\w_-]+\.[\w]+)/',
+            $node->attr('style'),
+            $matches
+        );
+        // dd($matches[1]);
+        \Log::info($matches[1]);
+        $data[] = $matches[1];
+    });
+    return $data;
 });
